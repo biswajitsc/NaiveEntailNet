@@ -5,35 +5,38 @@ from tensorflow.models.rnn import rnn, rnn_cell
 from options import Options
 
 
-def RNN(input_seq, input_len, scope_name):
-    with tf.variable_scope(scope_name, reuse=True):
-        w_in = tf.Variable(
-            tf.random_normal([Options.inp_dim, Options.lstm_dim])
+def RNN(input_seq, input_len, scope_name, reuse):
+    with tf.variable_scope(scope_name, reuse=reuse):
+        w_in = tf.get_variable(
+            "w_in",
+            shape=[Options.inp_dim, Options.lstm_dim],
+            initializer=tf.random_normal_initializer()
         )
-        b_in = tf.Variable(
-            tf.random_normal([Options.lstm_dim])
+        b_in = tf.get_variable(
+            "b_in",
+            shape=[Options.lstm_dim],
+            initializer=tf.random_normal_initializer()
         )
 
         X = tf.transpose(input_seq, [1, 0, 2])
         X = tf.reshape(X, [-1, Options.inp_dim])
         X = tf.matmul(X, w_in) + b_in
-
         X = tf.split(0, Options.max_seq_length, X)
 
         lstm_cell = rnn_cell.BasicLSTMCell(Options.lstm_dim)
         lstm = rnn_cell.MultiRNNCell([lstm_cell] * Options.lstm_layers)
 
-        initial_state = lstm.zero_state(Options.batch_size, tf.float32)
+        # initial_state = lstm.zero_state(None, tf.float32)
 
-        _, final_state = rnn.rnn(
+        outputs, state = rnn.rnn(
             cell=lstm,
-            inputs=input_seq,
-            initial_state=initial_state,
+            inputs=X,
+            # initial_state=initial_state,
             dtype=tf.float32,
             sequence_length=input_len
         )
 
-    return final_state
+    return outputs[-1]
 
 
 class EntailModel(object):
@@ -42,7 +45,7 @@ class EntailModel(object):
 
         self.input_seq1 = tf.placeholder(
             tf.float32,
-            [Options.batch_size, Options.max_seq_length, Options.inp_dim],
+            [None, Options.max_seq_length, Options.inp_dim],
             'sent1'
         )
         self.input_len1 = tf.placeholder(
@@ -50,16 +53,16 @@ class EntailModel(object):
 
         self.input_seq2 = tf.placeholder(
             tf.float32,
-            [Options.batch_size, Options.max_seq_length, Options.inp_dim],
+            [None, Options.max_seq_length, Options.inp_dim],
             'sent2'
         )
         self.input_len2 = tf.placeholder(
-            tf.int32, [Options.batch_size], 'len2')
+            tf.int32, [None], 'len2')
 
         self.labels = tf.placeholder(tf.int32, [Options.batch_size], 'labels')
 
-        state1 = RNN(self.input_seq1, self.input_len1, 'lstm')
-        state2 = RNN(self.input_seq2, self.input_len2, 'lstm')
+        state1 = RNN(self.input_seq1, self.input_len1, 'lstm', None)
+        state2 = RNN(self.input_seq2, self.input_len2, 'lstm', True)
 
         W = tf.Variable(
             tf.random_normal(
@@ -92,11 +95,14 @@ class EntailModel(object):
         W = tf.reshape(W, [Options.lstm_dim, -1])
 
         temp = tf.matmul(state1, W)
-        temp = tf.reshape(temp, [Options.ent_tensor_width, Options.lstm_dim])
-        temp = tf.transpose(temp)
+        temp = tf.reshape(temp, [-1, Options.ent_tensor_width, Options.lstm_dim])
+        temp = tf.transpose(temp, [2, 0, 1])
+        temp = tf.reshape(temp, [Options.lstm_dim, -1])
+        print(temp)
         temp = tf.matmul(state2, W)
+        temp = tf.reshape(temp, [-1, Options.ent_tensor_width])
 
-        temp = temp + tf.matmul(L1, state1) + tf.matmul(L2, state2) + C
+        temp = temp + tf.matmul(state1, L1) + tf.matmul(state2, L2) + C
         temp = tf.nn.relu(temp)
 
         W_s = tf.Variable(
