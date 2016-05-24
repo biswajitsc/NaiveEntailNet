@@ -122,8 +122,8 @@ def get_word_vectors(data):
         y = convert_to_vector(y, word2vec)
         data1_proc.append(x)
         data2_proc.append(y)
-        label = np.zeros(Options.num_classes)
-        label[z] = 1
+        label = np.zeros(Options.num_classes, dtype=np.float32)
+        label[z] = 1.0
         data_label.append(label)
         max_len = max(max_len, max(len(x), len(y)))
 
@@ -140,11 +140,11 @@ def get_word_vectors(data):
         data2_proc[i] = elem
         data2_len.append(c_len)
 
-    # data1_proc = np.asarray(data1_proc)
-    # data2_proc = np.asarray(data2_proc)
-    # data1_len = np.asarray(data1_len)
-    # data2_len = np.asarray(data2_len)
-    # data_label = np.asarray(data_label)
+    data1_proc = np.asarray(data1_proc)
+    data2_proc = np.asarray(data2_proc)
+    data1_len = np.asarray(data1_len)
+    data2_len = np.asarray(data2_len)
+    data_label = np.asarray(data_label)
 
     return data1_proc, data1_len, data2_proc, data2_len, data_label
 
