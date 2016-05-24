@@ -109,7 +109,7 @@ def get_word_vectors(data):
 
     data1_proc = []
     data2_proc = []
-    data_class = []
+    data_label = []
 
     data1_len = []
     data2_len = []
@@ -122,10 +122,12 @@ def get_word_vectors(data):
         y = convert_to_vector(y, word2vec)
         data1_proc.append(x)
         data2_proc.append(y)
-        data_class.append(z)
+        label = np.zeros(Options.num_classes)
+        label[z] = 1
+        data_label.append(label)
         max_len = max(max_len, max(len(x), len(y)))
 
-    for i in range(len(data_class)):
+    for i in range(len(data_label)):
         elem = data1_proc[i]
         c_len = len(elem)
         elem = np.append(elem, np.zeros((max_len - c_len, v_dim)), axis=0)
@@ -142,5 +144,15 @@ def get_word_vectors(data):
     data2_proc = np.asarray(data2_proc)
     data1_len = np.asarray(data1_len)
     data2_len = np.asarray(data2_len)
+    data_label = np.asarray(data_label)
 
-    return data1_proc, data1_len, data2_proc, data2_len, data_class
+    return data1_proc, data1_len, data2_proc, data2_len, data_label
+
+
+def batch_iter(data1, len1, data2, len2, labels):
+    n = data1.shape[0]
+    num_batches = (n + Options.batch_size - 1) // Options.batch_size
+    for i in range(num_batches):
+        ind1 = i * Options.batch_size
+        ind2 = min(n, (i + 1) * Options.batch_size)
+        yield data1[ind1:ind2], len1[ind1:ind2], data2[ind1:ind2], len2[ind1:ind2], labels[ind1:ind2]
