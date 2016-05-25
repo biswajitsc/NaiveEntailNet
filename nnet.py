@@ -171,12 +171,6 @@ class EntailModel(object):
             initializer=Options.initializer()
         )
 
-        # b_s = tf.get_variable(
-        #     'b_softmax',
-        #     shape=[Options.num_classes],
-        #     initializer=Options.initializer()
-        # )
-
         logits = tf.matmul(temp, W_s)
         self.pred = logits
 
@@ -190,12 +184,7 @@ class EntailModel(object):
             )
         )
 
-    def train(self, seq1, len1, seq2, len2, labels):
-        # optimizer = tf.train.MomentumOptimizer(
-        #     learning_rate=Options.learning_rate,
-        #     momentum=Options.momentum
-        # ).minimize(self.loss)
-
+    def train(self, seq1, len1, seq2, len2, labels, tseq1, tlen1, tseq2, tlen2, tlabels):
         optimizer = tf.train.AdamOptimizer(
             learning_rate=Options.learning_rate
         ).minimize(self.loss)
@@ -207,32 +196,6 @@ class EntailModel(object):
             sess.run(self.init)
 
             for i in range(Options.train_iters):
-
-                if i % 1 == 0:
-                    acc = 0
-                    loss = 0
-                    cnt = 0
-                    for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
-                        tacc, tloss, tpred = sess.run([self.accuracy, self.loss, self.pred], feed_dict={
-                            self.input_seq1: d1,
-                            self.input_len1: l1,
-                            self.input_seq2: d2,
-                            self.input_len2: l2,
-                            self.labels: l,
-                            self.initial_state: np.zeros((
-                                Options.batch_size,
-                                2 * Options.lstm_dim * Options.lstm_layers
-                            ))
-                        })
-                        cnt += 1
-
-                        acc += tacc
-                        loss += tloss
-
-                    acc /= cnt
-                    loss /= cnt
-
-                    print("Accuracy = {}\tLoss = {}".format(acc, loss))
 
                 print("Iteration {}".format(i))
                 for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
@@ -248,7 +211,39 @@ class EntailModel(object):
                         ))
                     })
 
+                if i % 10 == 0:
+                    saver.save(sess, "model.ckpt")
+                    self.test(sess, 'Train', seq1, len1, seq2, len2, labels)
+                    self.test(sess, 'Test', tseq1, tlen1, tseq2, tlen2, tlabels)
+
             saver.save(sess, "model.ckpt")
+
+    def test(self, sess, mode, seq1, len1, seq2, len2, labels):
+
+        acc = 0
+        loss = 0
+        cnt = 0
+        for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
+            tacc, tloss, tpred = sess.run([self.accuracy, self.loss, self.pred], feed_dict={
+                self.input_seq1: d1,
+                self.input_len1: l1,
+                self.input_seq2: d2,
+                self.input_len2: l2,
+                self.labels: l,
+                self.initial_state: np.zeros((
+                    Options.batch_size,
+                    2 * Options.lstm_dim * Options.lstm_layers
+                ))
+            })
+            cnt += 1
+
+            acc += tacc
+            loss += tloss
+
+        acc /= cnt
+        loss /= cnt
+
+        print("{0} Accuracy = {1}\t {0} Loss = {2}".format(mode, acc, loss))
 
     def exploremodel(self, seq1, len1, seq2, len2, labels):
         saver = tf.train.Saver()

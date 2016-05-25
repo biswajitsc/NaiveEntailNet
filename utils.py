@@ -27,9 +27,9 @@ def remove_punct(sent):
     return proc_sent
 
 
-def read_sentences():
+def read_sentences(filename):
     data = []
-    with open(Options.dataset_location, 'r') as readfile:
+    with open(filename, 'r') as readfile:
         readfile.readline()
         for line in readfile.readlines():
             line = line.strip()
@@ -73,36 +73,16 @@ def convert_to_vector(sent, vector_map):
 
 def get_word_vectors(data):
     counts = get_vocab_file(data)
-
-    try:
-        print('Checking if small word2vec file exists ...')
-        with open(Options.small_word2vec_model, 'r'):
-            pass
-        print('File exists')
-        print('Skipping large word2vec file')
-    except FileNotFoundError:
-        print('File does not exist')
-        print('Getting vectors from large word2vec file ...')
-        with open(Options.small_word2vec_model, 'w') as fout:
-            with open(Options.large_word2vec_model, 'r') as fin:
-                for line in fin:
-                    words = line.split()
-                    word = words[0]
-
-                    if word in counts:
-                        fout.write(line)
-
-        print('Created small word2vec file')
-
-    print('Reading small word2vec file ...')
     word2vec = {}
-    with open(Options.small_word2vec_model, 'r') as fin:
+    print("Reading word2vec file ...")
+    with open(Options.large_word2vec_model, 'r') as fin:
         for line in fin:
             words = line.split()
             word = words[0]
             vector = [float(val) for val in words[1:]]
             word2vec[word] = np.asarray(vector)
-            counts.pop(word)
+            if word in counts:
+                counts.pop(word)
     print('Reading completed')
 
     print('{} words were not found in the file.'.format(len(counts)))
@@ -114,7 +94,7 @@ def get_word_vectors(data):
     data1_len = []
     data2_len = []
 
-    max_len = 0
+    max_len = Options.max_seq_length
     v_dim = len(word2vec['for'])
 
     for (x, y, z) in data:
@@ -125,7 +105,6 @@ def get_word_vectors(data):
         label = np.zeros(Options.num_classes, dtype=np.float32)
         label[z] = 1.0
         data_label.append(label)
-        max_len = max(max_len, max(len(x), len(y)))
 
     for i in range(len(data_label)):
         elem = data1_proc[i]
