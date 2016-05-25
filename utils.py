@@ -5,11 +5,11 @@ from options import Options
 
 def class_map(classname):
     if classname == 'NEUTRAL':
-        return 0
-    elif classname == 'ENTAILMENT':
         return 1
-    elif classname == 'CONTRADICTION':
+    elif classname == 'ENTAILMENT':
         return 2
+    elif classname == 'CONTRADICTION':
+        return 0
     else:
         raise Exception('Invalid classname: ' + classname)
 
