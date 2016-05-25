@@ -130,7 +130,7 @@ def get_word_vectors(data):
 
 def batch_iter(data1, len1, data2, len2, labels):
     n = data1.shape[0]
-    num_batches = (n + Options.batch_size - 1) // Options.batch_size
+    num_batches = n // Options.batch_size
     for i in range(num_batches):
         ind1 = i * Options.batch_size
         ind2 = min(n, (i + 1) * Options.batch_size)
