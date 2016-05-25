@@ -1,6 +1,7 @@
 import tensorflow as tf
 import utils
 import numpy as np
+import sys
 
 from tensorflow.models.rnn import rnn, rnn_cell
 from options import Options
@@ -215,6 +216,8 @@ class EntailModel(object):
                     saver.save(sess, "model.ckpt")
                     self.test(sess, 'Train', seq1, len1, seq2, len2, labels)
                     self.test(sess, 'Test', tseq1, tlen1, tseq2, tlen2, tlabels)
+
+                    sys.stdout.flush()
 
             saver.save(sess, "model.ckpt")
 
