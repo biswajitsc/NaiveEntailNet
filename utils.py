@@ -75,7 +75,7 @@ def get_word_vectors(data):
     counts = get_vocab_file(data)
     word2vec = {}
     print("Reading word2vec file ...")
-    with open(Options.large_word2vec_model, 'r') as fin:
+    with open(Options.word2vec_model, 'r') as fin:
         for line in fin:
             words = line.split()
             word = words[0]

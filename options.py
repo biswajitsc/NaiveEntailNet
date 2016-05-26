@@ -4,10 +4,10 @@ import tensorflow as tf
 class Options(object):
     batch_size = 100
     max_seq_length = 40
-    inp_dim = 100
+    inp_dim = 50
     num_classes = 3
 
-    lstm_dim = 100
+    lstm_dim = 50
     lstm_layers = 1
 
     ent_tensor_width = 10
@@ -16,18 +16,17 @@ class Options(object):
     test_dataset_location = './dataset/sick_test/SICK_test.txt'
     dataset_location_template = './dataset/sick_{0}/SICK_{0}.txt'
 
-    large_word2vec_model = 'large_glove_model.txt'
-    small_word2vec_model = 'small_glove_model.txt'
+    word2vec_model = 'glove.6B.50d.txt'
     sick_vocab_file = 'sick_vocab.txt'
 
-    learning_rate = 0.001
+    learning_rate = 0.01
     momentum = 0.9
     train_iters = 1000
 
-    stddev = 0.1
+    stddev = 0.01
 
-    reg_weight = 0.0001
-    keep_prob = 0.5
+    reg_weight = 0.0
+    keep_prob = 0.7
 
     def initializer():
         return tf.random_normal_initializer(stddev=Options.stddev)

@@ -52,51 +52,53 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state, keep_prob):
         X = tf.matmul(X, w_in) + b_in
         X = tf.split(0, Options.max_seq_length, X)
 
-        lstm_cell = rnn_cell.LSTMCell(
+        lstm_cell_fw = rnn_cell.LSTMCell(
             Options.lstm_dim,
             initializer=Options.initializer()
         )
-        lstm_cell = rnn_cell.DropoutWrapper(
-            lstm_cell,
+        lstm_cell_fw = rnn_cell.DropoutWrapper(
+            lstm_cell_fw,
             input_keep_prob=keep_prob,
             output_keep_prob=keep_prob
         )
         if Options.lstm_layers > 1:
-            lstm_cell = rnn_cell.MultiRNNCell(
-                [lstm_cell] * Options.lstm_layers
+            lstm_cell_fw = rnn_cell.MultiRNNCell(
+                [lstm_cell_fw] * Options.lstm_layers
             )
 
-        outputs, state = rnn.rnn(
-            cell=lstm_cell,
+        lstm_cell_bw = rnn_cell.LSTMCell(
+            Options.lstm_dim,
+            initializer=Options.initializer()
+        )
+        lstm_cell_bw = rnn_cell.DropoutWrapper(
+            lstm_cell_bw,
+            input_keep_prob=keep_prob,
+            output_keep_prob=keep_prob
+        )
+        if Options.lstm_layers > 1:
+            lstm_cell_bw = rnn_cell.MultiRNNCell(
+                [lstm_cell_bw] * Options.lstm_layers
+            )
+
+        outputs, state_fw, state_bw = rnn.bidirectional_rnn(
+            cell_fw=lstm_cell_fw,
+            cell_bw=lstm_cell_bw,
             inputs=X,
-            initial_state=initial_state,
+            initial_state_fw=initial_state,
+            initial_state_bw=initial_state,
             dtype=tf.float32,
             sequence_length=input_len
         )
 
-    # outputs = tf.pack(outputs)
-    # outputs = tf.transpose(outputs, [1, 2, 0])
+    output_bw = outputs[0]
+    _, output_bw = tf.split(1, 2, output_bw)
 
-    # temp1 = tf.range(0, Options.batch_size)
-    # temp1 = tf.tile(temp1, [Options.lstm_dim])
-    # temp1 = tf.reshape(temp1, [Options.lstm_dim, -1])
-    # temp1 = tf.transpose(temp1, [1, 0])
+    output_fw = extract_last_relevant(outputs, input_len)
+    output_fw, _ = tf.split(1, 2, output_fw)
 
-    # temp2 = tf.range(0, Options.lstm_dim)
-    # temp2 = tf.tile(temp2, [Options.batch_size])
-    # temp2 = tf.reshape(temp2, [Options.batch_size, -1])
+    output = tf.concat(1, [output_fw, output_bw])
 
-    # temp3 = input_len
-    # temp3 = tf.tile(temp3, [Options.lstm_dim])
-    # temp3 = tf.reshape(temp3, [Options.lstm_dim, -1])
-    # temp3 = tf.transpose(temp3, [1, 0])
-
-    # indices = tf.pack([temp1, temp2, temp3])
-    # indices = tf.transpose(indices, [1, 2, 0])
-
-    # outputs = tf.gather_nd(outputs, indices)
-
-    return extract_last_relevant(outputs, input_len)
+    return output
 
 
 class EntailModel(object):
@@ -144,20 +146,20 @@ class EntailModel(object):
 
         W = tf.get_variable(
             'W_tensor',
-            shape=[Options.lstm_dim, Options.lstm_dim,
+            shape=[2 * Options.lstm_dim, 2 * Options.lstm_dim,
                    Options.ent_tensor_width],
             initializer=Options.initializer()
         )
 
         L1 = tf.get_variable(
             'L1_tensor',
-            shape=[Options.lstm_dim, Options.ent_tensor_width],
+            shape=[2 * Options.lstm_dim, Options.ent_tensor_width],
             initializer=Options.initializer()
         )
 
         L2 = tf.get_variable(
             'L2_tensor',
-            shape=[Options.lstm_dim, Options.ent_tensor_width],
+            shape=[2 * Options.lstm_dim, Options.ent_tensor_width],
             initializer=Options.initializer()
         )
 
@@ -167,13 +169,13 @@ class EntailModel(object):
             initializer=Options.initializer()
         )
 
-        W = tf.reshape(W, [Options.lstm_dim, -1])
+        W = tf.reshape(W, [2 * Options.lstm_dim, -1])
 
         temp = tf.matmul(self.state1, W)
         temp = tf.reshape(
-            temp, [-1, Options.lstm_dim, Options.ent_tensor_width]
+            temp, [-1, 2 * Options.lstm_dim, Options.ent_tensor_width]
         )
-        temp1 = tf.reshape(self.state2, [-1, 1, Options.lstm_dim])
+        temp1 = tf.reshape(self.state2, [-1, 1, 2 * Options.lstm_dim])
         temp = tf.batch_matmul(temp1, temp)
         temp = tf.reshape(temp, [-1, Options.ent_tensor_width])
         temp = temp + tf.matmul(self.state1, L1) + \
@@ -269,7 +271,7 @@ class EntailModel(object):
 
                     sys.stdout.flush()
 
-                # if i == 30:
+                # if i == 20:
                 #     decay_factor *= 10
 
             saver.save(sess, "model.ckpt")
