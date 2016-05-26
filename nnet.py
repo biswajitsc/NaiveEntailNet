@@ -34,7 +34,7 @@ def extract_last_relevant(outputs, length):
     return relevant
 
 
-def RNN(input_seq, input_len, scope_name, reuse, initial_state):
+def RNN(input_seq, input_len, scope_name, reuse, initial_state, keep_prob):
     with tf.variable_scope(scope_name, reuse=reuse):
         w_in = tf.get_variable(
             "w_in",
@@ -56,10 +56,18 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state):
             Options.lstm_dim,
             initializer=Options.initializer()
         )
-        lstm = rnn_cell.MultiRNNCell([lstm_cell] * Options.lstm_layers)
+        lstm_cell = rnn_cell.DropoutWrapper(
+            lstm_cell,
+            input_keep_prob=keep_prob,
+            output_keep_prob=keep_prob
+        )
+        if Options.lstm_layers > 1:
+            lstm_cell = rnn_cell.MultiRNNCell(
+                [lstm_cell] * Options.lstm_layers
+            )
 
         outputs, state = rnn.rnn(
-            cell=lstm,
+            cell=lstm_cell,
             inputs=X,
             initial_state=initial_state,
             dtype=tf.float32,
@@ -123,10 +131,16 @@ class EntailModel(object):
             'lstm_init'
         )
 
+        self.keep_prob = tf.placeholder(
+            tf.float32,
+            [],
+            'p_keep'
+        )
+
         self.state1 = RNN(self.input_seq1, self.input_len1,
-                          'lstm', None, self.initial_state)
+                          'lstm', None, self.initial_state, self.keep_prob)
         self.state2 = RNN(self.input_seq2, self.input_len2,
-                          'lstm', True, self.initial_state)
+                          'lstm', True, self.initial_state, self.keep_prob)
 
         W = tf.get_variable(
             'W_tensor',
@@ -172,11 +186,24 @@ class EntailModel(object):
             initializer=Options.initializer()
         )
 
+        # b_s = tf.get_variable(
+        #     'b_softmax',
+        #     shape=[Options.num_classes],
+        #     initializer=Options.initializer()
+        # )
+
         logits = tf.matmul(temp, W_s)
         self.pred = logits
 
         loss = tf.nn.softmax_cross_entropy_with_logits(logits, self.labels)
         self.loss = tf.reduce_mean(loss)
+
+        self.reg_loss = tf.contrib.layers.apply_regularization(
+            Options.regularizer(),
+            weights_list=tf.trainable_variables()
+        )
+
+        self.tot_loss = self.loss + Options.reg_weight * self.reg_loss
 
         self.accuracy = tf.reduce_mean(
             tf.cast(
@@ -186,9 +213,12 @@ class EntailModel(object):
         )
 
     def train(self, seq1, len1, seq2, len2, labels, tseq1, tlen1, tseq2, tlen2, tlabels):
-        optimizer = tf.train.AdamOptimizer(
-            learning_rate=Options.learning_rate
-        ).minimize(self.loss)
+        self.lrate = tf.placeholder(
+            tf.float32,
+            [],
+            'lrate'
+        )
+        optimizer = Options.optimizer(self.lrate).minimize(self.tot_loss)
 
         self.init = tf.initialize_all_variables()
         saver = tf.train.Saver()
@@ -196,28 +226,51 @@ class EntailModel(object):
         with tf.Session() as sess:
             sess.run(self.init)
 
+            decay_factor = 1
             for i in range(Options.train_iters):
-
                 print("Iteration {}".format(i))
+                loss_val = 0
+                reg_loss_val = 0
+                cnt = 0
+
                 for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
-                    sess.run(optimizer, feed_dict={
-                        self.input_seq1: d1,
-                        self.input_len1: l1,
-                        self.input_seq2: d2,
-                        self.input_len2: l2,
-                        self.labels: l,
-                        self.initial_state: np.zeros((
-                            Options.batch_size,
-                            2 * Options.lstm_dim * Options.lstm_layers
-                        ))
-                    })
+                    _, tlv, rlv = sess.run(
+                        [optimizer, self.loss, self.reg_loss],
+                        feed_dict={
+                            self.lrate: Options.learning_rate / decay_factor,
+                            self.input_seq1: d1,
+                            self.input_len1: l1,
+                            self.input_seq2: d2,
+                            self.input_len2: l2,
+                            self.labels: l,
+                            self.initial_state: np.zeros((
+                                Options.batch_size,
+                                2 * Options.lstm_dim * Options.lstm_layers
+                            )),
+                            self.keep_prob: Options.keep_prob
+                        })
+                    loss_val += tlv
+                    reg_loss_val += rlv
+                    cnt += 1
+
+                loss_val /= cnt
+                reg_loss_val /= cnt
+                print(
+                    "Classification loss = {}\t Regularization loss = {}"
+                    .format(loss_val, reg_loss_val)
+                )
 
                 if i % 10 == 0:
                     saver.save(sess, "model.ckpt")
-                    self.test(sess, 'Train', seq1, len1, seq2, len2, labels)
-                    self.test(sess, 'Test', tseq1, tlen1, tseq2, tlen2, tlabels)
+                    self.test(sess, 'Train', seq1,
+                              len1, seq2, len2, labels)
+                    self.test(sess, 'Test', tseq1, tlen1,
+                              tseq2, tlen2, tlabels)
 
                     sys.stdout.flush()
+
+                # if i == 30:
+                #     decay_factor *= 10
 
             saver.save(sess, "model.ckpt")
 
@@ -227,17 +280,20 @@ class EntailModel(object):
         loss = 0
         cnt = 0
         for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
-            tacc, tloss, tpred = sess.run([self.accuracy, self.loss, self.pred], feed_dict={
-                self.input_seq1: d1,
-                self.input_len1: l1,
-                self.input_seq2: d2,
-                self.input_len2: l2,
-                self.labels: l,
-                self.initial_state: np.zeros((
-                    Options.batch_size,
-                    2 * Options.lstm_dim * Options.lstm_layers
-                ))
-            })
+            tacc, tloss, tpred = sess.run(
+                [self.accuracy, self.tot_loss, self.pred],
+                feed_dict={
+                    self.input_seq1: d1,
+                    self.input_len1: l1,
+                    self.input_seq2: d2,
+                    self.input_len2: l2,
+                    self.labels: l,
+                    self.initial_state: np.zeros((
+                        Options.batch_size,
+                        2 * Options.lstm_dim * Options.lstm_layers
+                    )),
+                    self.keep_prob: 1.0
+                })
             cnt += 1
 
             acc += tacc

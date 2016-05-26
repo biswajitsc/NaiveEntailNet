@@ -128,6 +128,32 @@ def get_word_vectors(data):
     return data1_proc, data1_len, data2_proc, data2_len, data_label
 
 
+def read_dataset(mode):
+    filename = '{}_file.npz'.format(mode)
+    print('Reading ' + filename)
+    try:
+        with open(filename, 'rb'):
+            pass
+        print("Processed datafile exists")
+    except FileNotFoundError:
+        print("Processed datafile does not exist")
+        readfile = Options.dataset_location_template.format(mode)
+        data = read_sentences(readfile)
+        data1, len1, data2, len2, labels = get_word_vectors(data)
+        np.savez(filename, data1=data1, len1=len1,
+                 data2=data2, len2=len2, labels=labels)
+
+    loadfile = np.load(filename)
+
+    data1 = loadfile['data1']
+    len1 = loadfile['len1']
+    data2 = loadfile['data2']
+    len2 = loadfile['len2']
+    labels = loadfile['labels']
+
+    return data1, len1, data2, len2, labels
+
+
 def batch_iter(data1, len1, data2, len2, labels):
     n = data1.shape[0]
     num_batches = n // Options.batch_size
