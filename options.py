@@ -26,7 +26,7 @@ class Options(object):
 
     stddev = 0.01
 
-    reg_weight = 0.0
+    reg_weight = 0.00001
     keep_prob = 0.7
 
     def initializer():

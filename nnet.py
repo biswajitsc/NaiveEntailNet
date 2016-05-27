@@ -275,8 +275,8 @@ class EntailModel(object):
 
                     sys.stdout.flush()
 
-                if i == 100:
-                    decay_factor *= 10
+                # if i == 100:
+                #     decay_factor *= 10
 
             saver.save(sess, "model.ckpt")
 
