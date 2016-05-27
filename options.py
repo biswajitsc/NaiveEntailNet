@@ -10,7 +10,7 @@ class Options(object):
     lstm_dim = 50
     lstm_layers = 1
 
-    ent_tensor_width = 10
+    ent_tensor_width = 100
 
     train_dataset_location = './dataset/sick_train/SICK_train.txt'
     test_dataset_location = './dataset/sick_test/SICK_test.txt'
@@ -25,8 +25,8 @@ class Options(object):
 
     stddev = 0.01
 
-    reg_weight = 0.0
-    keep_prob = 0.7
+    reg_weight = 0.000001
+    keep_prob = 0.5
 
     def initializer():
         return tf.random_normal_initializer(stddev=Options.stddev)
