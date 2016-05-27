@@ -20,13 +20,14 @@ class Options(object):
     sick_vocab_file = 'sick_vocab.txt'
 
     learning_rate = 0.001
+    decay_iter_threshold = 10
     momentum = 0.9
     train_iters = 1000
 
     stddev = 0.01
 
-    reg_weight = 0.000001
-    keep_prob = 0.5
+    reg_weight = 0.0
+    keep_prob = 0.7
 
     def initializer():
         return tf.random_normal_initializer(stddev=Options.stddev)
@@ -38,8 +39,3 @@ class Options(object):
         return tf.train.AdamOptimizer(
             learning_rate=lrate
         )
-
-        # return tf.train.MomentumOptimizer(
-        #     learning_rate=Options.learning_rate,
-        #     momentum=Options.momentum
-        # )

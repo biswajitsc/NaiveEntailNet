@@ -1,7 +1,3 @@
-'''
-Basic utilities to read dataset
-'''
-
 import tensorflow as tf
 import utils
 import numpy as np
@@ -187,19 +183,21 @@ class EntailModel(object):
             tf.matmul(self.state2, L2) + C
         temp = tf.nn.relu(temp)
 
+        temp = tf.nn.dropout(temp, self.keep_prob)
+
         W_s = tf.get_variable(
             'W_softmax',
             shape=[Options.ent_tensor_width, Options.num_classes],
             initializer=Options.initializer()
         )
 
-        # b_s = tf.get_variable(
-        #     'b_softmax',
-        #     shape=[Options.num_classes],
-        #     initializer=Options.initializer()
-        # )
+        b_s = tf.get_variable(
+            'b_softmax',
+            shape=[Options.num_classes],
+            initializer=Options.initializer()
+        )
 
-        logits = tf.matmul(temp, W_s)
+        logits = tf.matmul(temp, W_s) + b_s
         self.pred = logits
 
         loss = tf.nn.softmax_cross_entropy_with_logits(logits, self.labels)
@@ -277,8 +275,8 @@ class EntailModel(object):
 
                     sys.stdout.flush()
 
-                # if i == 20:
-                #     decay_factor *= 10
+                if i == 100:
+                    decay_factor *= 10
 
             saver.save(sess, "model.ckpt")
 
