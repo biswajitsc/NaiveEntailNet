@@ -4,7 +4,7 @@ import tensorflow as tf
 class Options(object):
     batch_size = 100
     max_seq_length = 40
-    inp_dim = 50
+    inp_dim = 300
     num_classes = 3
 
     lstm_dim = 50
@@ -16,10 +16,10 @@ class Options(object):
     test_dataset_location = './dataset/sick_test/SICK_test.txt'
     dataset_location_template = './dataset/sick_{0}/SICK_{0}.txt'
 
-    word2vec_model = 'glove.6B.50d.txt'
+    word2vec_model = 'word2vec_large.txt'
     sick_vocab_file = 'sick_vocab.txt'
 
-    learning_rate = 0.01
+    learning_rate = 0.001
     momentum = 0.9
     train_iters = 1000
 

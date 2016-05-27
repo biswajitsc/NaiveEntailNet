@@ -1,3 +1,7 @@
+'''
+Basic utilities to read dataset
+'''
+
 import tensorflow as tf
 import utils
 import numpy as np
@@ -12,15 +16,16 @@ def extract_last_relevant(outputs, length):
     Source: http://stackoverflow.com/questions/35835989/
     how-to-pick-the-last-valid-output-values-from-tensorflow-rnn
     Args:
-        outputs: [Tensor(batch_size, output_neurons)]: A list containing the output
-            activations of each in the batch for each time step as returned by
-            tensorflow.models.rnn.rnn.
-        length: Tensor(batch_size): The used sequence length of each example in the
-            batch with all later time steps being zeros. Should be of type tf.int32.
+        outputs: [Tensor(batch_size, output_neurons)]: A list containing the
+            output activations of each in the batch for each time step as
+            returned by tensorflow.models.rnn.rnn.
+        length: Tensor(batch_size): The used sequence length of each example in
+            the batch with all later time steps being zeros. Should be of type
+            tf.int32.
 
     Returns:
-        Tensor(batch_size, output_neurons): The last relevant output activation for
-            each example in the batch.
+        Tensor(batch_size, output_neurons): The last relevant output activation
+            for each example in the batch.
     """
     output = tf.transpose(tf.pack(outputs), perm=[1, 0, 2])
     # Query shape.
@@ -214,7 +219,8 @@ class EntailModel(object):
             )
         )
 
-    def train(self, seq1, len1, seq2, len2, labels, tseq1, tlen1, tseq2, tlen2, tlabels):
+    def train(self, seq1, len1, seq2, len2, labels,
+              tseq1, tlen1, tseq2, tlen2, tlabels):
         self.lrate = tf.placeholder(
             tf.float32,
             [],
@@ -277,7 +283,6 @@ class EntailModel(object):
             saver.save(sess, "model.ckpt")
 
     def test(self, sess, mode, seq1, len1, seq2, len2, labels):
-
         acc = 0
         loss = 0
         cnt = 0
@@ -313,7 +318,7 @@ class EntailModel(object):
             saver.restore(sess, "model.ckpt")
 
             for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
-                val = sess.run(self.pred, feed_dict={
+                val1, val2 = sess.run([self.state1, self.state2], feed_dict={
                     self.input_seq1: d1,
                     self.input_len1: l1,
                     self.input_seq2: d2,
@@ -322,9 +327,8 @@ class EntailModel(object):
                     self.initial_state: np.zeros((
                         Options.batch_size,
                         2 * Options.lstm_dim * Options.lstm_layers
-                    ))
+                    )),
+                    self.keep_prob: 1.0
                 })
-
-                print(val)
 
                 break

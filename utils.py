@@ -80,8 +80,8 @@ def get_word_vectors(data):
             words = line.split()
             word = words[0]
             vector = [float(val) for val in words[1:]]
-            word2vec[word] = np.asarray(vector)
             if word in counts:
+                word2vec[word] = np.asarray(vector)
                 counts.pop(word)
     print('Reading completed')
 
