@@ -36,7 +36,8 @@ def extract_last_relevant(outputs, length):
     return relevant
 
 
-def RNN(input_seq, input_len, scope_name, reuse, initial_state, keep_prob):
+def RNN(input_seq, input_len, scope_name, reuse, initial_state,
+        lstm_keep_prob, nnet_keep_prob):
     with tf.variable_scope(scope_name, reuse=reuse):
         w_in = tf.get_variable(
             "w_in",
@@ -60,8 +61,8 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state, keep_prob):
         )
         lstm_cell_fw = rnn_cell.DropoutWrapper(
             lstm_cell_fw,
-            input_keep_prob=keep_prob,
-            output_keep_prob=keep_prob
+            input_keep_prob=lstm_keep_prob,
+            output_keep_prob=lstm_keep_prob
         )
         if Options.lstm_layers > 1:
             lstm_cell_fw = rnn_cell.MultiRNNCell(
@@ -74,8 +75,8 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state, keep_prob):
         )
         lstm_cell_bw = rnn_cell.DropoutWrapper(
             lstm_cell_bw,
-            input_keep_prob=keep_prob,
-            output_keep_prob=keep_prob
+            input_keep_prob=lstm_keep_prob,
+            output_keep_prob=lstm_keep_prob
         )
         if Options.lstm_layers > 1:
             lstm_cell_bw = rnn_cell.MultiRNNCell(
@@ -135,16 +136,24 @@ class EntailModel(object):
             'lstm_init'
         )
 
-        self.keep_prob = tf.placeholder(
+        self.lstm_keep_prob = tf.placeholder(
             tf.float32,
             [],
             'p_keep'
         )
 
-        self.state1 = RNN(self.input_seq1, self.input_len1,
-                          'lstm', None, self.initial_state, self.keep_prob)
-        self.state2 = RNN(self.input_seq2, self.input_len2,
-                          'lstm', True, self.initial_state, self.keep_prob)
+        self.nnet_keep_prob = tf.placeholder(
+            tf.float32,
+            [],
+            'n_keep'
+        )
+
+        self.state1 = RNN(self.input_seq1, self.input_len1, 'lstm', None,
+                          self.initial_state, self.lstm_keep_prob,
+                          self.nnet_keep_prob)
+        self.state2 = RNN(self.input_seq2, self.input_len2, 'lstm', True,
+                          self.initial_state, self.lstm_keep_prob,
+                          self.nnet_keep_prob)
 
         W = tf.get_variable(
             'W_tensor',
@@ -183,8 +192,7 @@ class EntailModel(object):
         temp = temp + tf.matmul(self.state1, L1) + \
             tf.matmul(self.state2, L2) + C
         temp = tf.nn.relu(temp)
-
-        temp = tf.nn.dropout(temp, self.keep_prob)
+        temp = tf.nn.dropout(temp, self.nnet_keep_prob)
 
         W_s = tf.get_variable(
             'W_softmax',
@@ -254,7 +262,8 @@ class EntailModel(object):
                                 Options.batch_size,
                                 2 * Options.lstm_dim * Options.lstm_layers
                             )),
-                            self.keep_prob: Options.keep_prob
+                            self.lstm_keep_prob: Options.lstm_keep_prob,
+                            self.nnet_keep_prob: Options.nnet_keep_prob
                         })
                     loss_val += tlv
                     reg_loss_val += rlv
@@ -298,7 +307,8 @@ class EntailModel(object):
                         Options.batch_size,
                         2 * Options.lstm_dim * Options.lstm_layers
                     )),
-                    self.keep_prob: 1.0
+                    self.lstm_keep_prob: 1.0,
+                    self.nnet_keep_prob: 1.0
                 })
             cnt += 1
 
@@ -329,7 +339,8 @@ class EntailModel(object):
                         Options.batch_size,
                         2 * Options.lstm_dim * Options.lstm_layers
                     )),
-                    self.keep_prob: 1.0
+                    self.lstm_keep_prob: 1.0,
+                    self.nnet_keep_prob: 1.0
                 })
 
                 preds.extend(val1[0])

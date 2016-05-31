@@ -27,7 +27,8 @@ class Options(object):
     stddev = 0.01
 
     reg_weight = 0.00001
-    keep_prob = 0.7
+    lstm_keep_prob = 0.7
+    nnet_keep_prob = 0.5
 
     def initializer():
         return tf.random_normal_initializer(stddev=Options.stddev)
