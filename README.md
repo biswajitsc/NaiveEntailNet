@@ -1,2 +1,2 @@
-# MemNetProject
-Implementing and trying to improve memory networks to create an inference engine.
+# EntailNet
+Implementing and trying to improve neural networks to solve the entailment problem.
