@@ -5,6 +5,7 @@ import sys
 
 from tensorflow.models.rnn import rnn, rnn_cell
 from options import Options
+from sklearn.metrics import confusion_matrix
 
 
 def extract_last_relevant(outputs, length):
@@ -198,7 +199,7 @@ class EntailModel(object):
         )
 
         logits = tf.matmul(temp, W_s) + b_s
-        self.pred = logits
+        self.pred = tf.argmax(logits, 1)
 
         loss = tf.nn.softmax_cross_entropy_with_logits(logits, self.labels)
         self.loss = tf.reduce_mean(loss)
@@ -315,8 +316,10 @@ class EntailModel(object):
         with tf.Session() as sess:
             saver.restore(sess, "model.ckpt")
 
+            preds = []
+
             for d1, l1, d2, l2, l in utils.batch_iter(seq1, len1, seq2, len2, labels):
-                val1, val2 = sess.run([self.state1, self.state2], feed_dict={
+                val1 = sess.run([self.pred], feed_dict={
                     self.input_seq1: d1,
                     self.input_len1: l1,
                     self.input_seq2: d2,
@@ -329,4 +332,11 @@ class EntailModel(object):
                     self.keep_prob: 1.0
                 })
 
-                break
+                preds.extend(val1[0])
+
+            classes = np.argmax(labels[:4900], axis=1)
+            cm = confusion_matrix(classes, preds)
+            print(cm)
+            print(np.mean(np.asarray(classes) == np.asarray(preds)))
+            for row in cm:
+                print(row / np.sum(row))

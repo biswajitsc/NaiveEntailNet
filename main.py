@@ -13,11 +13,12 @@ def main():
     model = nnet.EntailModel()
     print("Model created")
 
-    print("Training ...")
-    model.train(data1, len1, data2, len2, labels, tdata1, tlen1, tdata2, tlen2, tlabels)
-    print("Trained")
+    # print("Training ...")
+    # model.train(data1, len1, data2, len2, labels,
+    #             tdata1, tlen1, tdata2, tlen2, tlabels)
+    # print("Trained")
 
-    # model.exploremodel(data1, len1, data2, len2, labels)
+    model.exploremodel(tdata1, tlen1, tdata2, tlen2, tlabels)
 
 
 if __name__ == '__main__':
