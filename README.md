@@ -7,3 +7,4 @@ Implementing and trying to improve neural networks to solve the entailment probl
 * [A large annotated corpus for learning natural language inference](http://nlp.stanford.edu/pubs/snli_paper.pdf)
 * [A Fast Unified Model for Parsing and Sentence Understanding](http://stanford.edu/~sbowman/spinn.pdf)
 * [Long Short-Term Memory-Networks for Machine Reading](http://arxiv.org/pdf/1601.06733.pdf)
+* [A Fast and Accurate Dependency Parser using Neural Networks](http://cs.stanford.edu/people/danqi/papers/emnlp2014.pdf)
