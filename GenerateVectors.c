@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     printf("Cannot allocate memory: %lld MB    %lld  %lld\n", (long long)words * size * sizeof(float) / 1048576, words, size);
     return -1;
   }
-  fout = fopen("large_word2vec_model.txt", "w");
+  fout = fopen("word2vec_large.txt", "w");
   for (b = 0; b < words; b++) {
     a = 0;
     while (1) {

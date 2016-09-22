@@ -3,40 +3,12 @@ import utils
 import numpy as np
 import sys
 
-from tensorflow.models.rnn import rnn, rnn_cell
+from tensorflow.python.ops import rnn, rnn_cell
 from options import Options
-from sklearn.metrics import confusion_matrix
+# from sklearn.metrics import confusion_matrix
 
 
-def extract_last_relevant(outputs, length):
-    """
-    Source: http://stackoverflow.com/questions/35835989/
-    how-to-pick-the-last-valid-output-values-from-tensorflow-rnn
-    Args:
-        outputs: [Tensor(batch_size, output_neurons)]: A list containing the
-            output activations of each in the batch for each time step as
-            returned by tensorflow.models.rnn.rnn.
-        length: Tensor(batch_size): The used sequence length of each example in
-            the batch with all later time steps being zeros. Should be of type
-            tf.int32.
-
-    Returns:
-        Tensor(batch_size, output_neurons): The last relevant output activation
-            for each example in the batch.
-    """
-    output = tf.transpose(tf.pack(outputs), perm=[1, 0, 2])
-    # Query shape.
-    batch_size = tf.shape(output)[0]
-    max_length = int(output.get_shape()[1])
-    num_neurons = int(output.get_shape()[2])
-    # Index into flattened array as a workaround.
-    index = tf.range(0, batch_size) * max_length + (length - 1)
-    flat = tf.reshape(output, [-1, num_neurons])
-    relevant = tf.gather(flat, index)
-    return relevant
-
-
-def RNN(input_seq, input_len, scope_name, reuse, initial_state,
+def RNN(input_seq, input_len, scope_name, reuse,
         lstm_keep_prob, nnet_keep_prob):
     with tf.variable_scope(scope_name, reuse=reuse):
         w_in = tf.get_variable(
@@ -57,7 +29,8 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state,
 
         lstm_cell_fw = rnn_cell.LSTMCell(
             Options.lstm_dim,
-            initializer=Options.initializer()
+            initializer=Options.initializer(),
+            state_is_tuple=True
         )
         lstm_cell_fw = rnn_cell.DropoutWrapper(
             lstm_cell_fw,
@@ -71,7 +44,8 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state,
 
         lstm_cell_bw = rnn_cell.LSTMCell(
             Options.lstm_dim,
-            initializer=Options.initializer()
+            initializer=Options.initializer(),
+            state_is_tuple=True
         )
         lstm_cell_bw = rnn_cell.DropoutWrapper(
             lstm_cell_bw,
@@ -87,19 +61,19 @@ def RNN(input_seq, input_len, scope_name, reuse, initial_state,
             cell_fw=lstm_cell_fw,
             cell_bw=lstm_cell_bw,
             inputs=X,
-            initial_state_fw=initial_state,
-            initial_state_bw=initial_state,
             dtype=tf.float32,
             sequence_length=input_len
         )
 
-    output_bw = outputs[0]
-    _, output_bw = tf.split(1, 2, output_bw)
+    state_fw = tf.pack(state_fw)
+    state_fw = tf.transpose(state_fw, [1, 0, 2])
+    state_fw = tf.reshape(state_fw, [-1, 2 * Options.lstm_dim])
 
-    output_fw = extract_last_relevant(outputs, input_len)
-    output_fw, _ = tf.split(1, 2, output_fw)
+    state_bw = tf.pack(state_bw)
+    state_bw = tf.transpose(state_bw, [1, 0, 2])
+    state_bw = tf.reshape(state_bw, [-1, 2 * Options.lstm_dim])
 
-    output = tf.concat(1, [output_fw, output_bw])
+    output = tf.concat(1, [state_fw, state_bw])
 
     return output
 
@@ -130,12 +104,6 @@ class EntailModel(object):
             tf.float32, [None, Options.num_classes], 'labels'
         )
 
-        self.initial_state = tf.placeholder(
-            tf.float32,
-            [None, 2 * Options.lstm_dim * Options.lstm_layers],
-            'lstm_init'
-        )
-
         self.lstm_keep_prob = tf.placeholder(
             tf.float32,
             [],
@@ -149,11 +117,9 @@ class EntailModel(object):
         )
 
         self.state1 = RNN(self.input_seq1, self.input_len1, 'lstm', None,
-                          self.initial_state, self.lstm_keep_prob,
-                          self.nnet_keep_prob)
+                          self.lstm_keep_prob, self.nnet_keep_prob)
         self.state2 = RNN(self.input_seq2, self.input_len2, 'lstm', True,
-                          self.initial_state, self.lstm_keep_prob,
-                          self.nnet_keep_prob)
+                          self.lstm_keep_prob, self.nnet_keep_prob)
 
         W = tf.get_variable(
             'W_tensor',
@@ -164,13 +130,13 @@ class EntailModel(object):
 
         L1 = tf.get_variable(
             'L1_tensor',
-            shape=[2 * Options.lstm_dim, Options.ent_tensor_width],
+            shape=[4 * Options.lstm_dim, Options.ent_tensor_width],
             initializer=Options.initializer()
         )
 
         L2 = tf.get_variable(
             'L2_tensor',
-            shape=[2 * Options.lstm_dim, Options.ent_tensor_width],
+            shape=[4 * Options.lstm_dim, Options.ent_tensor_width],
             initializer=Options.initializer()
         )
 
@@ -180,7 +146,7 @@ class EntailModel(object):
             initializer=Options.initializer()
         )
 
-        W = tf.reshape(W, [2 * Options.lstm_dim, -1])
+        W = tf.reshape(W, [4 * Options.lstm_dim, -1])
 
         temp = tf.matmul(self.state1, W)
         temp = tf.reshape(
