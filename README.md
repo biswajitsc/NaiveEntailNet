@@ -1,4 +1,4 @@
-# EntailNet
+# NaiveEntailNet
 Tensorflow implementation of neural networks for the entailment problem in natural language understanding.
 A naive model using LSTMs on the SEMEVAL SICK dataset from http://alt.qcri.org/semeval2014/task1/
 
